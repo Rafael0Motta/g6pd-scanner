@@ -1,0 +1,114 @@
+// Schema do G6PD Scanner.
+// NAO rodar `prisma migrate` ate a DATABASE_URL da VPS ser configurada em apps/api/.env
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Classificacao {
+  SEGURO
+  CAUTELA
+  CONTRAINDICADO
+  NAO_IDENTIFICADO
+}
+
+enum OrigemProduto {
+  IA
+  MANUAL
+}
+
+enum NivelRisco {
+  ALTO
+  MODERADO
+  BAIXO
+}
+
+enum CategoriaSubstancia {
+  MEDICAMENTO
+  ALIMENTO
+  CORANTE
+  OUTRO
+}
+
+/// Identifica o "dono" anonimo do historico. Sem login: o app gera um UUID
+/// local (Capacitor Preferences) e envia no header x-device-id.
+model Device {
+  id          String    @id @default(uuid())
+  deviceId    String    @unique @map("device_id")
+  nomeApelido String?   @map("nome_apelido")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+
+  products Product[]
+
+  @@map("devices")
+}
+
+/// Catalogo/historico pessoal de produtos escaneados por um device.
+model Product {
+  id                    String         @id @default(uuid())
+  deviceId              String         @map("device_id")
+  device                Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  nomeProduto           String         @map("nome_produto")
+  imagemUrl             String?        @map("imagem_url")
+  ingredientesExtraidos Json           @default("[]") @map("ingredientes_extraidos")
+  classificacao         Classificacao  @default(NAO_IDENTIFICADO)
+  confiancaDeteccao     Float?         @map("confianca_deteccao")
+  origem                OrigemProduto  @default(IA)
+  createdAt             DateTime       @default(now()) @map("created_at")
+
+  matches ScanMatch[]
+
+  @@index([deviceId])
+  @@map("products")
+}
+
+/// Base de contraindicacoes G6PD. Curada manualmente pelo painel admin -
+/// NUNCA escrita automaticamente pela IA.
+model G6pdSubstance {
+  id              String              @id @default(uuid())
+  nomeSubstancia  String              @unique @map("nome_substancia")
+  sinonimos       String[]            @default([])
+  nivelRisco      NivelRisco          @map("nivel_risco")
+  categoria       CategoriaSubstancia
+  observacoes     String?
+  fonteReferencia String?             @map("fonte_referencia")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  matches ScanMatch[]
+
+  @@map("g6pd_substances")
+}
+
+/// Rastreabilidade: quais substancias da base bateram em cada scan e o
+/// trecho de texto (ingrediente extraido pela IA) que motivou o match.
+model ScanMatch {
+  id              String        @id @default(uuid())
+  productId       String        @map("product_id")
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  substanceId     String        @map("substance_id")
+  substance       G6pdSubstance @relation(fields: [substanceId], references: [id], onDelete: Cascade)
+  trechoDetectado String        @map("trecho_detectado")
+
+  @@index([productId])
+  @@index([substanceId])
+  @@map("scan_matches")
+}
+
+/// Unico ponto de autenticacao do sistema. So existe para o painel admin
+/// oculto - usuarios finais do app nunca autenticam.
+model Admin {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  senhaHash   String    @map("senha_hash")
+  nome        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  @@map("admins")
+}

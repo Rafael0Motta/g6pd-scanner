@@ -1,0 +1,21 @@
+{
+  "name": "g6pd-scanner",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:mobile": "npm run dev --workspace=apps/mobile",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "build:shared-types": "npm run build --workspace=packages/shared-types",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:mobile": "npm run build --workspace=apps/mobile",
+    "build:admin": "npm run build --workspace=apps/admin",
+    "prisma:generate": "npm run prisma:generate --workspace=apps/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace=apps/api",
+    "prisma:seed": "npm run prisma:seed --workspace=apps/api"
+  }
+}
